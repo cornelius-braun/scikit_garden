@@ -1,25 +1,14 @@
 import numpy as np
 from scipy import sparse
-from sklearn.base import ClassifierMixin
+from sklearn.ensemble._forest import ForestClassifier
+from sklearn.ensemble._forest import ForestRegressor
 from sklearn.exceptions import NotFittedError
-from sklearn.preprocessing import LabelEncoder
-from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
 from sklearn.utils.validation import check_X_y
-from joblib import delayed, Parallel
 
 from ..tree import MondrianTreeClassifier
 from ..tree import MondrianTreeRegressor
 
-from ...forest import ForestClassifier
-from ...forest import ForestRegressor
-
-def _single_tree_pfit(tree, X, y, classes=None):
-    if classes is not None:
-        tree.partial_fit(X, y, classes)
-    else:
-        tree.partial_fit(X, y)
-    return tree
 
 class BaseMondrian(object):
     def weighted_decision_path(self, X):
@@ -50,79 +39,6 @@ class BaseMondrian(object):
         paths = sparse.hstack(
             [est.weighted_decision_path(X) for est in self.estimators_]).tocsr()
         return paths, est_inds
-
-    # XXX: This is mainly a stripped version of BaseForest.fit
-    # from sklearn.forest
-    def partial_fit(self, X, y, classes=None):
-        """
-        Incremental building of Mondrian Forests.
-
-        Parameters
-        ----------
-        X : array_like, shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``
-
-        y: array_like, shape = [n_samples]
-            Input targets.
-
-        classes: array_like, shape = [n_classes]
-            Ignored for a regression problem. For a classification
-            problem, if not provided this is inferred from y.
-            This is taken into account for only the first call to
-            partial_fit and ignored for subsequent calls.
-
-        Returns
-        -------
-        self: instance of MondrianForest
-        """
-        X, y = check_X_y(X, y, dtype=np.float32, multi_output=False)
-        random_state = check_random_state(self.random_state)
-
-        # Wipe out estimators if partial_fit is called after fit.
-        first_call = not hasattr(self, "first_")
-        if first_call:
-            self.first_ = True
-
-        if isinstance(self, ClassifierMixin):
-            if first_call:
-                if classes is None:
-                    classes = LabelEncoder().fit(y).classes_
-
-                self.classes_ = classes
-                self.n_classes_ = len(self.classes_)
-
-        # Remap output
-        n_samples, self.n_features_ = X.shape
-
-        y = np.atleast_1d(y)
-        if y.ndim == 2 and y.shape[1] == 1:
-            warn("A column-vector y was passed when a 1d array was"
-                 " expected. Please change the shape of y to "
-                 "(n_samples,), for example using ravel().",
-                 DataConversionWarning, stacklevel=2)
-
-        self.n_outputs_ = 1
-
-        # Initialize estimators at first call to partial_fit.
-        if first_call:
-            # Check estimators
-            self._validate_estimator()
-            self.estimators_ = []
-
-            for _ in range(self.n_estimators):
-                tree = self._make_estimator(append=False, random_state=random_state)
-                self.estimators_.append(tree)
-
-        # XXX: Switch to threading backend when GIL is released.
-        if isinstance(self, ClassifierMixin):
-            self.estimators_ = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
-                delayed(_single_tree_pfit)(t, X, y, classes) for t in self.estimators_)
-        else:
-            self.estimators_ = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
-                delayed(_single_tree_pfit)(t, X, y) for t in self.estimators_)
-
-        return self
 
 
 class MondrianForestRegressor(ForestRegressor, BaseMondrian):
@@ -257,31 +173,6 @@ class MondrianForestRegressor(ForestRegressor, BaseMondrian):
         std **= 0.5
         return ensemble_mean, std
 
-    def partial_fit(self, X, y):
-        """
-        Incremental building of Mondrian Forest Regressors.
-
-        Parameters
-        ----------
-        X : array_like, shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``
-
-        y: array_like, shape = [n_samples]
-            Input targets.
-
-        classes: array_like, shape = [n_classes]
-            Ignored for a regression problem. For a classification
-            problem, if not provided this is inferred from y.
-            This is taken into account for only the first call to
-            partial_fit and ignored for subsequent calls.
-
-        Returns
-        -------
-        self: instance of MondrianForestClassifier
-        """
-        return super(MondrianForestRegressor, self).partial_fit(X, y)
-
 
 class MondrianForestClassifier(ForestClassifier, BaseMondrian):
     """
@@ -361,29 +252,3 @@ class MondrianForestClassifier(ForestClassifier, BaseMondrian):
         """
         X, y = check_X_y(X, y, dtype=np.float32, multi_output=False)
         return super(MondrianForestClassifier, self).fit(X, y)
-
-    def partial_fit(self, X, y, classes=None):
-        """
-        Incremental building of Mondrian Forest Classifiers.
-
-        Parameters
-        ----------
-        X : array_like, shape = [n_samples, n_features]
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32``
-
-        y: array_like, shape = [n_samples]
-            Input targets.
-
-        classes: array_like, shape = [n_classes]
-            Ignored for a regression problem. For a classification
-            problem, if not provided this is inferred from y.
-            This is taken into account for only the first call to
-            partial_fit and ignored for subsequent calls.
-
-        Returns
-        -------
-        self: instance of MondrianForestClassifier
-        """
-        return super(MondrianForestClassifier, self).partial_fit(
-            X, y, classes=classes)

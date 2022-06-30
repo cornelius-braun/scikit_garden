@@ -37,10 +37,10 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import check_X_y
 from sklearn.exceptions import NotFittedError
 
-from ._criterion import Criterion
-from ._splitter import Splitter
-from ._tree import DepthFirstTreeBuilder
-from ._tree import Tree
+from skgarden.mondrian.tree._criterion import Criterion
+from skgarden.mondrian.tree._splitter import Splitter
+from skgarden.mondrian.tree._tree import DepthFirstTreeBuilder
+from skgarden.mondrian.tree._tree import Tree
 from skgarden.mondrian.tree import _tree, _splitter, _criterion
 
 __all__ = ["DecisionTreeClassifier",

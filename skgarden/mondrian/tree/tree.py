@@ -74,7 +74,10 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import check_X_y
 from sklearn.exceptions import NotFittedError
 
-from skgarden.mondrian.tree._criterion import Criterion
+import sys
+import six
+sys.modules['sklearn.externals.six'] = six                      # this is necessary for skgarden compatibility
+from skgarden.mondrian.tree._criterion import Criterion         # use this as the actual files will not build properly locally
 from skgarden.mondrian.tree._splitter import Splitter
 from skgarden.mondrian.tree._tree import DepthFirstTreeBuilder
 from skgarden.mondrian.tree._tree import Tree
